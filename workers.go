@@ -18,15 +18,15 @@ type Neighbour struct {
 	Options []TLV
 }
 
-func ParceBGPOpenMsg(OpenBuf []byte, cfg config) BGPOpenMsg {
+func ParceBGPOpenMsg(OpenBuf *[]byte, cfg config) BGPOpenMsg {
 	OpenMsg := BGPOpenMsg{}
 
-	OpenMsg.Version = uint8(OpenBuf[0])
-	OpenMsg.Asn = binary.BigEndian.Uint16(OpenBuf[1:3])
-	OpenMsg.HoldTime = binary.BigEndian.Uint16(OpenBuf[3:5])
-	OpenMsg.BGPIdentifier = OpenBuf[5:9]
-	OpenMsg.OptLen = uint8(OpenBuf[9])
-	OpenMsg.OptParams = OpenBuf[10:]
+	OpenMsg.Version = uint8((*OpenBuf)[0])
+	OpenMsg.Asn = binary.BigEndian.Uint16((*OpenBuf)[1:3])
+	OpenMsg.HoldTime = binary.BigEndian.Uint16((*OpenBuf)[3:5])
+	OpenMsg.BGPIdentifier = (*OpenBuf)[5:9]
+	OpenMsg.OptLen = uint8((*OpenBuf)[9])
+	OpenMsg.OptParams = (*OpenBuf)[10:]
 	log.Info("Open recieved: ", OpenMsg.BGPIdentifier)
 
 	return OpenMsg
@@ -80,45 +80,41 @@ func SendBGPKeepaliveMsg(conn net.Conn) error {
 	return nil
 }
 
-func ParceBGPUpdateMsg(UpdateBuf []byte) BGPUpdateMsg {
+func ParceBGPUpdateMsg(UpdateBuf *[]byte) BGPUpdateMsg {
 	UpdateMsg := BGPUpdateMsg{}
-	fmt.Println("UpdateBuff: ", UpdateBuf)
+	//fmt.Println("UpdateBuff: ", *UpdateBuf)
 
 	//Parce WithdrawnRoutes
-	UpdateMsg.WithdrawnRoutesLen = binary.BigEndian.Uint16(UpdateBuf[0:2])
+	UpdateMsg.WithdrawnRoutesLen = binary.BigEndian.Uint16((*UpdateBuf)[0:2])
 	if UpdateMsg.WithdrawnRoutesLen == 0 {
-		UpdateMsg.WithdrawnRoutes = []byte{}
+		UpdateMsg.WithdrawnRoutes = []Route{}
 	} else {
-		UpdateMsg.WithdrawnRoutes = parceRoute(UpdateBuf[2:UpdateMsg.WithdrawnRoutesLen])
+		UpdateMsg.WithdrawnRoutes = parceRoute((*UpdateBuf)[2:UpdateMsg.WithdrawnRoutesLen])
 	}
 	index := int(unsafe.Sizeof(UpdateMsg.WithdrawnRoutesLen)) + int(UpdateMsg.WithdrawnRoutesLen)
 
 	//Parce PathArrtibutes
-	UpdateMsg.PathArrtibutesLen = binary.BigEndian.Uint16(UpdateBuf[index : index+2])
+	UpdateMsg.PathArrtibutesLen = binary.BigEndian.Uint16((*UpdateBuf)[index : index+2])
 	if UpdateMsg.PathArrtibutesLen == 0 {
-		UpdateMsg.PathArrtibutes = []byte{}
+		UpdateMsg.PathArrtibutes = map[uint8]PathAttr{}
 	} else {
-		UpdateMsg.PathArrtibutes = UpdateBuf[index+2 : index+int(UpdateMsg.PathArrtibutesLen)]
+		UpdateMsg.PathArrtibutes = parcePathAttr((*UpdateBuf)[index+2 : index+int(UpdateMsg.PathArrtibutesLen)])
 	}
 	index = index + int(unsafe.Sizeof(UpdateMsg.PathArrtibutesLen)) + int(UpdateMsg.PathArrtibutesLen)
 
 	//Parce NLRI
-	if len(UpdateBuf[index:]) > 0 {
-		UpdateMsg.NLRI = parceRoute(UpdateBuf[index:])
+	if len((*UpdateBuf)[index:]) > 0 {
+		UpdateMsg.NLRI = parceRoute((*UpdateBuf)[index:])
 	}
-	fmt.Println("UpdateMsg: ", UpdateMsg)
 	return UpdateMsg
 }
 
 func parceRoute(buff []byte) []Route {
 	len := len(buff)
-	fmt.Println("buff route", buff)
-
 	var parcedroute Route
 	r := make([]Route, 0)
 	for index := 0; ; {
 		parcedroute.PrefixLen = uint8(buff[index])
-		fmt.Println("route len ", parcedroute.PrefixLen)
 		if uint8(buff[index])%8 != 0 {
 			parcedroute.Value = buff[index+1 : index+int(parcedroute.PrefixLen/8)+2]
 			index = index + int(parcedroute.PrefixLen)/8 + 2
@@ -127,8 +123,6 @@ func parceRoute(buff []byte) []Route {
 			index = index + int(parcedroute.PrefixLen)/8 + 1
 		}
 		r = append(r, parcedroute)
-
-		//	fmt.Println("parce route", r, index, len)
 		if index >= len {
 			break
 		}
@@ -136,7 +130,32 @@ func parceRoute(buff []byte) []Route {
 	return r
 }
 
-func parseTLV(buff []byte) []TLV {
+func parcePathAttr(buff []byte) map[uint8]PathAttr {
+	//fmt.Println("PAbuff: ", buff)
+	len := len(buff)
+	var attrLen int
+	parcedPA := PathAttr{}
+	a := make(map[uint8]PathAttr, 0)
+	for index := 0; ; {
+		parcedPA.flags = buff[index]
+		if (buff[index] & 16) > 0 { //check if 5 bit is set (extended length)
+			attrLen = int(binary.BigEndian.Uint16(buff[index+2:index+4])) + 4
+			parcedPA.Value = buff[index+4 : index+attrLen]
+		} else {
+			attrLen = int(buff[index+2]) + 3
+			parcedPA.Value = buff[index+3 : index+attrLen]
+		}
+		a[buff[index+1]] = parcedPA
+		//fmt.Println("PAmap: ", a, index, len)
+		index = index + attrLen
+		if index >= len {
+			break
+		}
+	}
+	return a
+}
+
+func parseTLV(buff []byte) []TLV { // Parce TLV to struct
 	len := len(buff)
 	//fmt.Println("len:", len)
 	var parcedtlv TLV
@@ -160,7 +179,7 @@ func parseTLV(buff []byte) []TLV {
 	return m
 }
 
-func readBytes(conn net.Conn, length int) ([]byte, error) {
+func readBytes(conn net.Conn, length int) ([]byte, error) { //Read bytes from net socket
 	buf := make([]byte, length)
 	_, err := io.ReadFull(conn, buf)
 	if err != nil {
@@ -204,7 +223,7 @@ loop:
 
 		switch Header.Type {
 		case BGP_MSG_OPEN:
-			OpenMsg := ParceBGPOpenMsg(MessageBuf, cfg)
+			OpenMsg := ParceBGPOpenMsg(&MessageBuf, cfg)
 			//fmt.Println(BGPPeer.PeerIP, "OpenMSG: ", OpenMsg)
 
 			for _, Options := range parseTLV(OpenMsg.OptParams) {
@@ -222,8 +241,8 @@ loop:
 			}
 		case BGP_MSG_UPDATE:
 			log.Debug(BGPPeer.PeerIP, " Update recieved")
-			_ = ParceBGPUpdateMsg(MessageBuf)
-
+			UpdateMsg := ParceBGPUpdateMsg(&MessageBuf)
+			log.Debug("UpdateMsg: ", UpdateMsg)
 		case BGP_MSG_NOTIFICATON:
 			log.Error(BGPPeer.PeerIP, " Notification recieved: ", MessageBuf)
 			break loop

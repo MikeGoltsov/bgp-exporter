@@ -37,7 +37,7 @@ type BGPUpdateMsg struct {
 	WithdrawnRoutesLen uint16
 	WithdrawnRoutes    []Route
 	PathArrtibutesLen  uint16
-	PathArrtibutes     []byte
+	PathArrtibutes     map[uint8]PathAttr
 	NLRI               []Route
 }
 
@@ -50,4 +50,9 @@ type TLV struct {
 type Route struct {
 	PrefixLen uint8
 	Value     []byte
+}
+
+type PathAttr struct {
+	flags uint8
+	Value []byte
 }
