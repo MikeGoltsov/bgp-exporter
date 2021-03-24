@@ -35,14 +35,19 @@ type BGPOpenMsg struct {
 
 type BGPUpdateMsg struct {
 	WithdrawnRoutesLen uint16
-	WithdrawnRoutes    []byte
+	WithdrawnRoutes    []Route
 	PathArrtibutesLen  uint16
 	PathArrtibutes     []byte
-	NLRI               []byte
+	NLRI               []Route
 }
 
 type TLV struct {
 	Type   uint8
 	Length uint8
 	Value  []byte
+}
+
+type Route struct {
+	PrefixLen uint8
+	Value     []byte
 }

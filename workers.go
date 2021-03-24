@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"reflect"
+	"unsafe"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -81,25 +82,58 @@ func SendBGPKeepaliveMsg(conn net.Conn) error {
 
 func ParceBGPUpdateMsg(UpdateBuf []byte) BGPUpdateMsg {
 	UpdateMsg := BGPUpdateMsg{}
-	fmt.Println(UpdateBuf)
-	// OpenMsg.Version = uint8(OpenBuf[0])
-	// OpenMsg.Asn = binary.BigEndian.Uint16(OpenBuf[1:3])
-	// OpenMsg.HoldTime = binary.BigEndian.Uint16(OpenBuf[3:5])
-	// OpenMsg.BGPIdentifier = OpenBuf[5:9]
-	// OpenMsg.OptLen = uint8(OpenBuf[9])
-	// OpenMsg.OptParams = OpenBuf[10:]
-	// log.Info("Open recieved: ", OpenMsg.BGPIdentifier)
+	fmt.Println("UpdateBuff: ", UpdateBuf)
 
+	//Parce WithdrawnRoutes
+	UpdateMsg.WithdrawnRoutesLen = binary.BigEndian.Uint16(UpdateBuf[0:2])
+	if UpdateMsg.WithdrawnRoutesLen == 0 {
+		UpdateMsg.WithdrawnRoutes = []byte{}
+	} else {
+		UpdateMsg.WithdrawnRoutes = parceRoute(UpdateBuf[2:UpdateMsg.WithdrawnRoutesLen])
+	}
+	index := int(unsafe.Sizeof(UpdateMsg.WithdrawnRoutesLen)) + int(UpdateMsg.WithdrawnRoutesLen)
+
+	//Parce PathArrtibutes
+	UpdateMsg.PathArrtibutesLen = binary.BigEndian.Uint16(UpdateBuf[index : index+2])
+	if UpdateMsg.PathArrtibutesLen == 0 {
+		UpdateMsg.PathArrtibutes = []byte{}
+	} else {
+		UpdateMsg.PathArrtibutes = UpdateBuf[index+2 : index+int(UpdateMsg.PathArrtibutesLen)]
+	}
+	index = index + int(unsafe.Sizeof(UpdateMsg.PathArrtibutesLen)) + int(UpdateMsg.PathArrtibutesLen)
+
+	//Parce NLRI
+	if len(UpdateBuf[index:]) > 0 {
+		UpdateMsg.NLRI = parceRoute(UpdateBuf[index:])
+	}
+	fmt.Println("UpdateMsg: ", UpdateMsg)
 	return UpdateMsg
 }
 
-func readBytes(conn net.Conn, length int) ([]byte, error) {
-	buf := make([]byte, length)
-	_, err := io.ReadFull(conn, buf)
-	if err != nil {
-		return nil, err
+func parceRoute(buff []byte) []Route {
+	len := len(buff)
+	fmt.Println("buff route", buff)
+
+	var parcedroute Route
+	r := make([]Route, 0)
+	for index := 0; ; {
+		parcedroute.PrefixLen = uint8(buff[index])
+		fmt.Println("route len ", parcedroute.PrefixLen)
+		if uint8(buff[index])%8 != 0 {
+			parcedroute.Value = buff[index+1 : index+int(parcedroute.PrefixLen/8)+2]
+			index = index + int(parcedroute.PrefixLen)/8 + 2
+		} else {
+			parcedroute.Value = buff[index+1 : index+int(parcedroute.PrefixLen/8)+1]
+			index = index + int(parcedroute.PrefixLen)/8 + 1
+		}
+		r = append(r, parcedroute)
+
+		//	fmt.Println("parce route", r, index, len)
+		if index >= len {
+			break
+		}
 	}
-	return buf, nil
+	return r
 }
 
 func parseTLV(buff []byte) []TLV {
@@ -124,6 +158,15 @@ func parseTLV(buff []byte) []TLV {
 		}
 	}
 	return m
+}
+
+func readBytes(conn net.Conn, length int) ([]byte, error) {
+	buf := make([]byte, length)
+	_, err := io.ReadFull(conn, buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf, nil
 }
 
 // Handles incoming requests.
