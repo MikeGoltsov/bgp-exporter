@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 )
@@ -39,6 +40,7 @@ func main() {
 	log.Printf("App Started")
 	fmt.Println(cfg)
 
+	prometheus.MustRegister(routes)
 	http.Handle("/metrics", promhttp.Handler())
 	//	http.ListenAndServe(":"+strconv.Itoa(cfg.prom_port), nil)
 

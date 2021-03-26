@@ -21,6 +21,7 @@ const (
 
 	BGP_AS_TRANS       = 23456
 	BGP_OPT_CAPABILITY = 2
+	BGP_PA_ASPATH      = 2
 )
 
 type BGPHeader struct {
@@ -54,7 +55,8 @@ type TLV struct {
 
 type Route struct {
 	PrefixLen uint8
-	Value     []byte
+	Prefix    []byte
+	AsPath    []uint32
 }
 
 type PathAttr struct {

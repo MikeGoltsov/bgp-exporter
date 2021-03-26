@@ -8,10 +8,16 @@ import (
 	"io"
 	"net"
 	"reflect"
+	"strconv"
+	"strings"
 	"unsafe"
 
 	log "github.com/sirupsen/logrus"
 )
+
+type afi struct {
+	ipv4 []Route
+}
 
 type Neighbour struct {
 	connection net.Conn
@@ -24,6 +30,7 @@ type Neighbour struct {
 	OptParams  []byte
 	MyASN      uint32
 	MyRID      net.IP
+	route      afi
 }
 
 func (N *Neighbour) ParceBGPOpenMsg(MessageBuf *[]byte) error {
@@ -45,6 +52,7 @@ func (N *Neighbour) ParceBGPOpenMsg(MessageBuf *[]byte) error {
 			log.Error(N.PeerIP, " Cant parse Capabilities option")
 		}
 	}
+	N.Asn32 = true /////////////////////////
 
 	log.Info(N.PeerIP, " Open recieved")
 	return nil
@@ -68,9 +76,9 @@ func (N *Neighbour) SendBGPOpenMsg() error {
 
 	Capabilities := append(BGP_CAP_MP_IPv4_UNICAST)
 
-	Capabilities = append(Capabilities, BGP_CAP_32_BIT_ASN...)
 	ansbuf := make([]byte, 4)
 	binary.BigEndian.PutUint32(ansbuf, N.MyASN)
+	Capabilities = append(Capabilities, BGP_CAP_32_BIT_ASN...)
 	Capabilities = append(Capabilities, ansbuf...)
 
 	OpenMsg.OptParams = append([]byte{0x02, uint8(len(Capabilities))}, Capabilities...)
@@ -113,9 +121,93 @@ func (N *Neighbour) SendBGPKeepaliveMsg() error {
 	return nil
 }
 
+func aspathtostr(aspath []uint32) string {
+	aspathstring := []string{}
+	for _, asn := range aspath {
+		aspathstring = append(aspathstring, strconv.FormatUint(uint64(asn), 10))
+	}
+	return strings.Join(aspathstring, "_")
+}
+
+func ipv4ttostr(route Route) string {
+	routelen := 4
+	ipaddrstr := []string{}
+	for i := 0; i < routelen; i++ {
+		if i < len(route.Prefix) {
+			ipaddrstr = append(ipaddrstr, strconv.FormatUint(uint64(route.Prefix[i]), 10))
+		} else {
+			ipaddrstr = append(ipaddrstr, "0")
+		}
+	}
+	return strings.Join(ipaddrstr, ".") + "/" + strconv.FormatUint(uint64(route.PrefixLen), 10)
+}
+
+func (N *Neighbour) HandleBGPUpdateMsg(UpdateBuf *[]byte) {
+	UpdateMsg := ParceBGPUpdateMsg(UpdateBuf)
+	aspath := []uint32{}
+	log.Debug("UpdateMsg: ", UpdateMsg)
+	//Rarce Path attributes
+	if len(UpdateMsg.PathArrtibutes) > 0 {
+		if pa, ok := UpdateMsg.PathArrtibutes[BGP_PA_ASPATH]; ok {
+			if len(pa.Value) > 0 {
+				for i := 0; i < int(pa.Value[1]); i++ {
+					if N.Asn32 {
+						aspath = append(aspath, (binary.BigEndian.Uint32(pa.Value[(i*4)+2 : (i*4)+6])))
+					} else {
+						aspath = append(aspath, uint32((binary.BigEndian.Uint16(pa.Value[(i*2)+2 : (i*2)+4]))))
+					}
+				}
+			} else {
+				log.Error(N.PeerIP, " ASPATH length is 0")
+			}
+		}
+	}
+
+	//Add routes to route table
+	if len(UpdateMsg.NLRI) > 0 {
+		for _, route := range UpdateMsg.NLRI {
+			route.AsPath = append(route.AsPath, aspath...)
+			if len(N.route.ipv4) > 0 { //If route table not empty
+				for index, existroutes := range N.route.ipv4 {
+					//fmt.Println(reflect.DeepEqual(existroutes.Prefix, route.Prefix), reflect.DeepEqual(existroutes.PrefixLen, route.PrefixLen))
+					if reflect.DeepEqual(existroutes.Prefix, route.Prefix) && reflect.DeepEqual(existroutes.PrefixLen, route.PrefixLen) { //If route updated
+						//delete prom
+						routes.DeleteLabelValues(N.PeerIP, ipv4ttostr(route), aspathtostr(existroutes.AsPath))
+						N.route.ipv4[index].AsPath = aspath
+						//add prom
+						routes.WithLabelValues(N.PeerIP, ipv4ttostr(route), aspathtostr(route.AsPath)).Inc()
+						break
+					} else { //If new route
+						log.Debug(N.PeerIP, " Add route: ", route.Prefix, route.PrefixLen)
+						N.route.ipv4 = append(N.route.ipv4, route)
+						routes.WithLabelValues(N.PeerIP, ipv4ttostr(route), aspathtostr(route.AsPath)).Inc()
+					}
+				}
+			} else {
+				log.Debug(N.PeerIP, " Add route: ", route.Prefix, route.PrefixLen)
+				N.route.ipv4 = append(N.route.ipv4, route)
+				routes.WithLabelValues(N.PeerIP, ipv4ttostr(route), aspathtostr(route.AsPath)).Inc()
+			}
+		}
+	}
+	//Delete Withdrawn Routes from route table
+	if len(UpdateMsg.WithdrawnRoutes) > 0 {
+		for _, route := range UpdateMsg.WithdrawnRoutes {
+			for index, existroutes := range N.route.ipv4 {
+				if reflect.DeepEqual(existroutes.Prefix, route.Prefix) && reflect.DeepEqual(existroutes.PrefixLen, route.PrefixLen) {
+					log.Debug(N.PeerIP, " Delete route: ", route.Prefix, route.PrefixLen)
+					routes.WithLabelValues(N.PeerIP, ipv4ttostr(route), aspathtostr(N.route.ipv4[index].AsPath)).Dec()
+					N.route.ipv4 = append(N.route.ipv4[:index], N.route.ipv4[index+1:]...)
+					break
+				}
+			}
+		}
+	}
+
+}
+
 func ParceBGPUpdateMsg(UpdateBuf *[]byte) BGPUpdateMsg {
 	UpdateMsg := BGPUpdateMsg{}
-	//fmt.Println("UpdateBuff: ", *UpdateBuf)
 
 	//Parce WithdrawnRoutes
 	UpdateMsg.WithdrawnRoutesLen = binary.BigEndian.Uint16((*UpdateBuf)[0:2])
@@ -139,6 +231,7 @@ func ParceBGPUpdateMsg(UpdateBuf *[]byte) BGPUpdateMsg {
 	if len((*UpdateBuf)[index:]) > 0 {
 		UpdateMsg.NLRI = parceRoute((*UpdateBuf)[index:])
 	}
+
 	return UpdateMsg
 }
 
@@ -149,10 +242,10 @@ func parceRoute(buff []byte) []Route {
 	for index := 0; ; {
 		parcedroute.PrefixLen = uint8(buff[index])
 		if uint8(buff[index])%8 != 0 {
-			parcedroute.Value = buff[index+1 : index+int(parcedroute.PrefixLen/8)+2]
+			parcedroute.Prefix = buff[index+1 : index+int(parcedroute.PrefixLen/8)+2]
 			index = index + int(parcedroute.PrefixLen)/8 + 2
 		} else {
-			parcedroute.Value = buff[index+1 : index+int(parcedroute.PrefixLen/8)+1]
+			parcedroute.Prefix = buff[index+1 : index+int(parcedroute.PrefixLen/8)+1]
 			index = index + int(parcedroute.PrefixLen)/8 + 1
 		}
 		r = append(r, parcedroute)
@@ -224,7 +317,7 @@ func readBytes(conn net.Conn, length int) ([]byte, error) { //Read bytes from ne
 // Handles incoming requests.
 func handlePeer(conn net.Conn, cfg config) {
 	PeerIP, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
-	BGPPeer := Neighbour{
+	Peer := Neighbour{
 		connection: conn,
 		PeerIP:     PeerIP,
 		MyASN:      uint32(cfg.Asn),
@@ -235,67 +328,70 @@ func handlePeer(conn net.Conn, cfg config) {
 
 	totalConnections.Inc()
 	aliveConnections.Inc()
-	log.Info(BGPPeer.PeerIP, " New connection")
+	log.Info(Peer.PeerIP, " New connection")
 loop:
 	for {
 
 		err := binary.Read(conn, binary.BigEndian, &Header)
 		if err != nil {
-			log.Error(BGPPeer.PeerIP, " Connection read failed:", err)
+			log.Error(Peer.PeerIP, " Connection read failed:", err)
 			break
 		}
 		//fmt.Println(Header)
 		if !reflect.DeepEqual(Header.Padding, BGP_HEADER_PADDING) {
-			log.Error(BGPPeer.PeerIP, " Not BGP Packet")
+			log.Error(Peer.PeerIP, " Not BGP Packet")
 			break
 		}
 		if Header.Length > 0 {
 			MessageBuf, err = readBytes(conn, (int(Header.Length) - binary.Size(Header)))
 			if err != nil {
-				log.Error(BGPPeer.PeerIP, " Message body read failed:", err)
+				log.Error(Peer.PeerIP, " Message body read failed:", err)
 				break
 			}
 		}
 
 		switch Header.Type {
 		case BGP_MSG_OPEN:
-			err := BGPPeer.ParceBGPOpenMsg(&MessageBuf)
+			err := Peer.ParceBGPOpenMsg(&MessageBuf)
 			if err != nil {
-				log.Error(BGPPeer.PeerIP, " Ceonnetion failed:", err)
+				log.Error(Peer.PeerIP, " Ceonnetion failed:", err)
 				break
 			}
 
-			fmt.Println("BGPPeer: ", BGPPeer)
-
-			err = BGPPeer.SendBGPOpenMsg()
+			err = Peer.SendBGPOpenMsg()
 			if err != nil {
-				log.Error(BGPPeer.PeerIP, " Open send failed:", err)
+				log.Error(Peer.PeerIP, " Open send failed:", err)
 				break
 			}
 		case BGP_MSG_UPDATE:
-			log.Debug(BGPPeer.PeerIP, " Update recieved")
-			UpdateMsg := ParceBGPUpdateMsg(&MessageBuf)
-			log.Debug("UpdateMsg: ", UpdateMsg)
+			log.Debug(Peer.PeerIP, " Update recieved")
+			Peer.HandleBGPUpdateMsg(&MessageBuf)
+			fmt.Println("Peer: ", Peer)
+
 		case BGP_MSG_NOTIFICATON:
-			log.Error(BGPPeer.PeerIP, " Notification recieved: ", MessageBuf)
+			log.Error(Peer.PeerIP, " Notification recieved: ", MessageBuf)
 			break loop
 		case BGP_MSG_KEEPALIVE:
-			log.Debug(BGPPeer.PeerIP, " Keepalive recieved")
-			err := BGPPeer.SendBGPKeepaliveMsg()
+			log.Debug(Peer.PeerIP, " Keepalive recieved")
+			err := Peer.SendBGPKeepaliveMsg()
 			if err != nil {
-				log.Print(BGPPeer.PeerIP, " Keepalive send failed:", err)
+				log.Print(Peer.PeerIP, " Keepalive send failed:", err)
 				break
 			}
 		case BGP_MSG_REFRESH:
 			//Unsupported
-			log.Debug(BGPPeer.PeerIP, "Refresh recieved")
+			log.Debug(Peer.PeerIP, "Refresh recieved")
 			fmt.Println(MessageBuf)
 		}
 
 		MessageBuf = nil
 
 	}
-	log.Info(BGPPeer.PeerIP, " Close connection")
+	log.Info(Peer.PeerIP, " Close connection")
 	conn.Close()
 	aliveConnections.Dec()
+	//Delete routes from metrics
+	for _, route := range Peer.route.ipv4 {
+		routes.DeleteLabelValues(Peer.PeerIP, ipv4ttostr(route), aspathtostr(route.AsPath))
+	}
 }
