@@ -19,9 +19,13 @@ const (
 	BGP_MSG_KEEPALIVE   = 4
 	BGP_MSG_REFRESH     = 5
 
-	BGP_AS_TRANS       = 23456
-	BGP_OPT_CAPABILITY = 2
-	BGP_PA_ASPATH      = 2
+	BGP_AS_TRANS              = 23456
+	BGP_OPT_CAPABILITY        = 2
+	BGP_OPT_CAP_ASN_32BIT     = 0x41
+	BGP_OPT_CAP_ROUTE_REFRESH = 0x02
+	BGP_OPT_CAP_MP            = 0x01
+
+	BGP_PA_ASPATH = 2
 )
 
 type BGPHeader struct {

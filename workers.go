@@ -48,11 +48,26 @@ func (N *Neighbour) ParceBGPOpenMsg(MessageBuf *[]byte) error {
 		if Options.Type == BGP_OPT_CAPABILITY {
 			N.Options = parseTLV(Options.Value)
 			log.Debug(N.PeerIP, " Open Options list: ", N.Options)
+			for _, Option := range parseTLV(Options.Value) {
+
+				switch Option.Type {
+				case BGP_OPT_CAP_ASN_32BIT:
+					N.Asn32 = true
+					N.Asn = binary.BigEndian.Uint32(Option.Value)
+					log.Debug(N.PeerIP, " Support ASN 32bit")
+					break
+				case BGP_OPT_CAP_ROUTE_REFRESH:
+					log.Debug(N.PeerIP, " Support Route refresh")
+					break
+				case BGP_OPT_CAP_MP:
+					log.Debug(N.PeerIP, " Support Multi Protocol ", Option.Value)
+					break
+				}
+			}
 		} else {
 			log.Error(N.PeerIP, " Cant parse Capabilities option")
 		}
 	}
-	N.Asn32 = true /////////////////////////
 
 	log.Info(N.PeerIP, " Open recieved")
 	return nil
@@ -165,11 +180,10 @@ func (N *Neighbour) HandleBGPUpdateMsg(UpdateBuf *[]byte) {
 
 	//Add routes to route table
 	if len(UpdateMsg.NLRI) > 0 {
-		for _, route := range UpdateMsg.NLRI {
+		for _, route := range UpdateMsg.NLRI { //need SWAP LOOPS for big routing tables
 			route.AsPath = append(route.AsPath, aspath...)
 			if len(N.route.ipv4) > 0 { //If route table not empty
 				for index, existroutes := range N.route.ipv4 {
-					//fmt.Println(reflect.DeepEqual(existroutes.Prefix, route.Prefix), reflect.DeepEqual(existroutes.PrefixLen, route.PrefixLen))
 					if reflect.DeepEqual(existroutes.Prefix, route.Prefix) && reflect.DeepEqual(existroutes.PrefixLen, route.PrefixLen) { //If route updated
 						//delete prom
 						routes.DeleteLabelValues(N.PeerIP, ipv4ttostr(route), aspathtostr(existroutes.AsPath))
@@ -320,6 +334,7 @@ func handlePeer(conn net.Conn, cfg config) {
 	Peer := Neighbour{
 		connection: conn,
 		PeerIP:     PeerIP,
+		Asn32:      false,
 		MyASN:      uint32(cfg.Asn),
 		MyRID:      cfg.rid.To4(),
 	}
@@ -355,13 +370,13 @@ loop:
 			err := Peer.ParceBGPOpenMsg(&MessageBuf)
 			if err != nil {
 				log.Error(Peer.PeerIP, " Ceonnetion failed:", err)
-				break
+				break loop
 			}
 
 			err = Peer.SendBGPOpenMsg()
 			if err != nil {
 				log.Error(Peer.PeerIP, " Open send failed:", err)
-				break
+				break loop
 			}
 		case BGP_MSG_UPDATE:
 			log.Debug(Peer.PeerIP, " Update recieved")
@@ -376,7 +391,7 @@ loop:
 			err := Peer.SendBGPKeepaliveMsg()
 			if err != nil {
 				log.Print(Peer.PeerIP, " Keepalive send failed:", err)
-				break
+				break loop
 			}
 		case BGP_MSG_REFRESH:
 			//Unsupported
