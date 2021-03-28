@@ -25,7 +25,6 @@ type Neighbour struct {
 	PeerRID    net.IP
 	Asn        uint32
 	Asn32      bool
-	Options    []TLV
 	HoldTime   uint16
 	OptParams  []byte
 	MyASN      uint32
@@ -46,34 +45,34 @@ func (N *Neighbour) ParceBGPOpenMsg(MessageBuf *[]byte) error {
 
 	for _, Options := range parseTLV((*MessageBuf)[10:]) {
 		if Options.Type == BGP_OPT_CAPABILITY {
-			N.Options = parseTLV(Options.Value)
-			log.Debug(N.PeerIP, " Open Options list: ", N.Options)
-			for _, Option := range parseTLV(Options.Value) {
+			for _, Capability := range parseTLV(Options.Value) {
 
-				switch Option.Type {
+				switch Capability.Type {
 				case BGP_OPT_CAP_ASN_32BIT:
 					N.Asn32 = true
-					N.Asn = binary.BigEndian.Uint32(Option.Value)
+					N.Asn = binary.BigEndian.Uint32(Capability.Value)
 					log.Debug(N.PeerIP, " Support ASN 32bit")
 					break
 				case BGP_OPT_CAP_ROUTE_REFRESH:
 					log.Debug(N.PeerIP, " Support Route refresh")
 					break
 				case BGP_OPT_CAP_MP:
-					log.Debug(N.PeerIP, " Support Multi Protocol ", Option.Value)
+					log.Debug(N.PeerIP, " Support Multi Protocol ", Capability.Value)
 					break
 				}
 			}
 		} else {
-			log.Error(N.PeerIP, " Cant parse Capabilities option")
+			log.Info(N.PeerIP, " Recieved unsupported OPEN option")
 		}
 	}
 
-	log.Info(N.PeerIP, " Open recieved")
+	log.Debug(N.PeerIP, " Open recieved")
 	return nil
 }
 
 func (N *Neighbour) SendBGPOpenMsg() error {
+	ansbuf := make([]byte, 4)
+
 	Header := BGPHeader{
 		Padding: BGP_HEADER_PADDING,
 		Type:    BGP_MSG_OPEN}
@@ -89,14 +88,11 @@ func (N *Neighbour) SendBGPOpenMsg() error {
 		OpenMsg.Asn = uint16(N.MyASN)
 	}
 
-	Capabilities := append(BGP_CAP_MP_IPv4_UNICAST)
-
-	ansbuf := make([]byte, 4)
+	Capabilities := append(BGP_CAP_MP_IPv4_UNICAST, BGP_CAP_32_BIT_ASN...)
 	binary.BigEndian.PutUint32(ansbuf, N.MyASN)
-	Capabilities = append(Capabilities, BGP_CAP_32_BIT_ASN...)
 	Capabilities = append(Capabilities, ansbuf...)
 
-	OpenMsg.OptParams = append([]byte{0x02, uint8(len(Capabilities))}, Capabilities...)
+	OpenMsg.OptParams = append([]byte{BGP_OPT_CAPABILITY, uint8(len(Capabilities))}, Capabilities...)
 
 	OpenMsg.OptLen = uint8(len(OpenMsg.OptParams))
 	Header.Length = uint16(binary.Size(Header) + BGP_OPEN_FIX_LENGTH + len(OpenMsg.OptParams))
@@ -110,12 +106,8 @@ func (N *Neighbour) SendBGPOpenMsg() error {
 	binary.Write(Buffer, binary.BigEndian, &OpenMsg.Version)
 	binary.Write(Buffer, binary.BigEndian, &OpenMsg.Asn)
 	binary.Write(Buffer, binary.BigEndian, &OpenMsg.HoldTime)
-	Buffer.Write(N.MyRID)
-	err = binary.Write(Buffer, binary.BigEndian, &OpenMsg.OptLen)
-	if err != nil {
-		log.Error("Connection OPEN msg write failed:", err)
-		return err
-	}
+	Buffer.Write(OpenMsg.BGPIdentifier)
+	binary.Write(Buffer, binary.BigEndian, &OpenMsg.OptLen)
 	Buffer.Write(OpenMsg.OptParams)
 
 	N.connection.Write(Buffer.Bytes())
@@ -286,7 +278,6 @@ func parcePathAttr(buff []byte) map[uint8]PathAttr {
 			parcedPA.Value = buff[index+3 : index+attrLen]
 		}
 		a[buff[index+1]] = parcedPA
-		//fmt.Println("PAmap: ", a, index, len)
 		index = index + attrLen
 		if index >= len {
 			break
@@ -369,7 +360,7 @@ loop:
 		case BGP_MSG_OPEN:
 			err := Peer.ParceBGPOpenMsg(&MessageBuf)
 			if err != nil {
-				log.Error(Peer.PeerIP, " Ceonnetion failed:", err)
+				log.Error(Peer.PeerIP, " OPEN failed:", err)
 				break loop
 			}
 
