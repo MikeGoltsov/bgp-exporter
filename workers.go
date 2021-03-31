@@ -181,7 +181,9 @@ func (N *Neighbour) HandleBGPUpdateMsg(UpdateBuf *[]byte) {
 	//Delete Withdrawn Routes from route table
 	if len(UpdateMsg.WithdrawnRoutes) > 0 {
 		for _, route := range UpdateMsg.WithdrawnRoutes {
-			routes.WithLabelValues(N.PeerIP, ipv4ttostr(route), N.routes[ipv4ttostr(route)]).Dec()
+			if existaspath, ok := N.routes[ipv4ttostr(route)]; ok {
+				routes.WithLabelValues(N.PeerIP, ipv4ttostr(route), existaspath).Dec()
+			}
 			delete(N.routes, ipv4ttostr(route))
 		}
 	}
