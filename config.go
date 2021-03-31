@@ -26,7 +26,7 @@ func newConfig(testConfig bool) config {
 		}
 		c.Asn = d
 	} else {
-		c.Asn = 65321
+		c.Asn = 64512
 	}
 
 	//BGP Router ID

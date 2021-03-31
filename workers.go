@@ -67,7 +67,7 @@ func (N *Neighbour) ParceBGPOpenMsg(MessageBuf *[]byte) error {
 }
 
 func (N *Neighbour) SendBGPOpenMsg() error {
-	ansbuf := make([]byte, 4)
+	buf := make([]byte, 4)
 
 	Header := BGPHeader{
 		Padding: BGP_HEADER_PADDING,
@@ -85,8 +85,9 @@ func (N *Neighbour) SendBGPOpenMsg() error {
 	}
 
 	Capabilities := append(BGP_CAP_MP_IPv4_UNICAST, BGP_CAP_32_BIT_ASN...)
-	binary.BigEndian.PutUint32(ansbuf, N.MyASN)
-	Capabilities = append(Capabilities, ansbuf...)
+	binary.BigEndian.PutUint32(buf, N.MyASN)
+	Capabilities = append(Capabilities, buf...)
+	//Capabilities = append(Capabilities, BGP_CAP_MP_IPv6_UNICAST...)
 
 	OpenMsg.OptParams = append([]byte{BGP_OPT_CAPABILITY, uint8(len(Capabilities))}, Capabilities...)
 

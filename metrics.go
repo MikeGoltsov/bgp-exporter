@@ -6,6 +6,11 @@ import (
 )
 
 var (
+	myasn = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "bgp_local_asn",
+		Help: "Local BGP ASN number",
+	}, []string{"asn"})
+
 	totalConnections = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "bgp_connections_total",
 		Help: "The total number of connections",

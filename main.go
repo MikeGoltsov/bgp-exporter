@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -38,11 +37,10 @@ func main() {
 	log.SetFormatter(&log.TextFormatter{FullTimestamp: false})
 	log.SetLevel(log.DebugLevel)
 	log.Printf("App Started")
-	fmt.Println(cfg)
+	myasn.WithLabelValues(strconv.Itoa(cfg.Asn)).Inc()
 
 	prometheus.MustRegister(routes)
 	http.Handle("/metrics", promhttp.Handler())
-	//	http.ListenAndServe(":"+strconv.Itoa(cfg.prom_port), nil)
 
 	go func() {
 		if err := http.ListenAndServe(":"+strconv.Itoa(cfg.prom_port), nil); err != nil {
