@@ -15,10 +15,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type afi struct {
-	ipv4 []Route
-}
-
 type Neighbour struct {
 	connection net.Conn
 	PeerIP     string
@@ -29,7 +25,7 @@ type Neighbour struct {
 	OptParams  []byte
 	MyASN      uint32
 	MyRID      net.IP
-	route      afi
+	routes     map[string]string
 }
 
 func (N *Neighbour) ParceBGPOpenMsg(MessageBuf *[]byte) error {
@@ -174,42 +170,20 @@ func (N *Neighbour) HandleBGPUpdateMsg(UpdateBuf *[]byte) {
 	if len(UpdateMsg.NLRI) > 0 {
 		for _, route := range UpdateMsg.NLRI { //need SWAP LOOPS for big routing tables
 			route.AsPath = append(route.AsPath, aspath...)
-			if len(N.route.ipv4) > 0 { //If route table not empty
-				for index, existroutes := range N.route.ipv4 {
-					if reflect.DeepEqual(existroutes.Prefix, route.Prefix) && reflect.DeepEqual(existroutes.PrefixLen, route.PrefixLen) { //If route updated
-						//delete prom
-						routes.DeleteLabelValues(N.PeerIP, ipv4ttostr(route), aspathtostr(existroutes.AsPath))
-						N.route.ipv4[index].AsPath = aspath
-						//add prom
-						routes.WithLabelValues(N.PeerIP, ipv4ttostr(route), aspathtostr(route.AsPath)).Inc()
-						break
-					} else { //If new route
-						log.Debug(N.PeerIP, " Add route: ", route.Prefix, route.PrefixLen)
-						N.route.ipv4 = append(N.route.ipv4, route)
-						routes.WithLabelValues(N.PeerIP, ipv4ttostr(route), aspathtostr(route.AsPath)).Inc()
-					}
-				}
-			} else {
-				log.Debug(N.PeerIP, " Add route: ", route.Prefix, route.PrefixLen)
-				N.route.ipv4 = append(N.route.ipv4, route)
-				routes.WithLabelValues(N.PeerIP, ipv4ttostr(route), aspathtostr(route.AsPath)).Inc()
+			if existaspath, ok := N.routes[ipv4ttostr(route)]; ok {
+				routes.WithLabelValues(N.PeerIP, ipv4ttostr(route), existaspath).Dec()
 			}
+			N.routes[ipv4ttostr(route)] = aspathtostr(route.AsPath)
+			routes.WithLabelValues(N.PeerIP, ipv4ttostr(route), aspathtostr(route.AsPath)).Inc()
 		}
 	}
 	//Delete Withdrawn Routes from route table
 	if len(UpdateMsg.WithdrawnRoutes) > 0 {
 		for _, route := range UpdateMsg.WithdrawnRoutes {
-			for index, existroutes := range N.route.ipv4 {
-				if reflect.DeepEqual(existroutes.Prefix, route.Prefix) && reflect.DeepEqual(existroutes.PrefixLen, route.PrefixLen) {
-					log.Debug(N.PeerIP, " Delete route: ", route.Prefix, route.PrefixLen)
-					routes.WithLabelValues(N.PeerIP, ipv4ttostr(route), aspathtostr(N.route.ipv4[index].AsPath)).Dec()
-					N.route.ipv4 = append(N.route.ipv4[:index], N.route.ipv4[index+1:]...)
-					break
-				}
-			}
+			routes.WithLabelValues(N.PeerIP, ipv4ttostr(route), N.routes[ipv4ttostr(route)]).Dec()
+			delete(N.routes, ipv4ttostr(route))
 		}
 	}
-
 }
 
 func ParceBGPUpdateMsg(UpdateBuf *[]byte) BGPUpdateMsg {
@@ -328,6 +302,7 @@ func handlePeer(conn net.Conn, cfg config) {
 		Asn32:      false,
 		MyASN:      uint32(cfg.Asn),
 		MyRID:      cfg.rid.To4(),
+		routes:     make(map[string]string),
 	}
 	var MessageBuf []byte
 	Header := BGPHeader{}
@@ -372,7 +347,6 @@ loop:
 		case BGP_MSG_UPDATE:
 			log.Debug(Peer.PeerIP, " Update recieved")
 			Peer.HandleBGPUpdateMsg(&MessageBuf)
-			fmt.Println("Peer: ", Peer)
 
 		case BGP_MSG_NOTIFICATON:
 			log.Error(Peer.PeerIP, " Notification recieved: ", MessageBuf)
@@ -397,7 +371,7 @@ loop:
 	conn.Close()
 	aliveConnections.Dec()
 	//Delete routes from metrics
-	for _, route := range Peer.route.ipv4 {
-		routes.DeleteLabelValues(Peer.PeerIP, ipv4ttostr(route), aspathtostr(route.AsPath))
+	for route, aspath := range Peer.routes {
+		routes.WithLabelValues(Peer.PeerIP, route, aspath).Dec()
 	}
 }

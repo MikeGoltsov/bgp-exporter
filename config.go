@@ -46,8 +46,7 @@ func newConfig(testConfig bool) config {
 		}
 		c.Addr = addr
 	} else {
-		c.Addr = "192.168.1.108" //"0.0.0.0"
-		//c.Addr = "10.34.180.19"
+		c.Addr = "0.0.0.0"
 	}
 
 	//PROMETHEUS PORT
@@ -58,7 +57,7 @@ func newConfig(testConfig bool) config {
 		}
 		c.prom_port = d
 	} else {
-		c.prom_port = 9100
+		c.prom_port = 9179
 	}
 
 	return c
