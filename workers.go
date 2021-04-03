@@ -176,6 +176,7 @@ func (N *Neighbour) HandleBGPUpdateMsg(UpdateBuf *[]byte) {
 			}
 			N.routes[ipv4ttostr(route)] = aspathtostr(route.AsPath)
 			routes.WithLabelValues(N.PeerIP, ipv4ttostr(route), aspathtostr(route.AsPath)).Inc()
+			route_change.WithLabelValues(N.PeerIP, ipv4ttostr(route), aspathtostr(route.AsPath)).Inc()
 		}
 	}
 	//Delete Withdrawn Routes from route table
@@ -183,6 +184,7 @@ func (N *Neighbour) HandleBGPUpdateMsg(UpdateBuf *[]byte) {
 		for _, route := range UpdateMsg.WithdrawnRoutes {
 			if existaspath, ok := N.routes[ipv4ttostr(route)]; ok {
 				routes.WithLabelValues(N.PeerIP, ipv4ttostr(route), existaspath).Dec()
+				route_change.WithLabelValues(N.PeerIP, ipv4ttostr(route), existaspath).Inc()
 			}
 			delete(N.routes, ipv4ttostr(route))
 		}
@@ -375,6 +377,7 @@ loop:
 	aliveConnections.Dec()
 	//Delete routes from metrics
 	for route, aspath := range Peer.routes {
+		route_change.WithLabelValues(Peer.PeerIP, route, aspath).Inc()
 		routes.WithLabelValues(Peer.PeerIP, route, aspath).Dec()
 	}
 }

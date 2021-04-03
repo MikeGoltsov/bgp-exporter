@@ -40,6 +40,7 @@ func main() {
 	myasn.WithLabelValues(strconv.Itoa(cfg.Asn)).Inc()
 
 	prometheus.MustRegister(routes)
+	prometheus.MustRegister(route_change)
 	http.Handle("/metrics", promhttp.Handler())
 
 	go func() {
