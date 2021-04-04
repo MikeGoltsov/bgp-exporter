@@ -32,18 +32,18 @@ func BgpThread(cfg exporter.Config) {
 
 func main() {
 	cfg := exporter.NewConfig(false)
-	log.SetFormatter(&log.TextFormatter{FullTimestamp: false})
+	log.SetFormatter(&log.TextFormatter{FullTimestamp: true})
 	log.SetLevel(log.DebugLevel)
-	log.Printf("App Started")
+	log.Info("App Starting")
 
 	go exporter.StartMetricsServer(cfg)
 
 	go BgpThread(cfg)
 
-	log.Printf("App running")
+	log.Info("App running")
 	//wait for OS signal
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
 	<-c
-
+	log.Info("Exit by Signal")
 }

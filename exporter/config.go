@@ -5,6 +5,8 @@ import (
 	"net"
 	"os"
 	"strconv"
+
+	"github.com/spf13/viper"
 )
 
 type Config struct {
@@ -17,6 +19,8 @@ type Config struct {
 func NewConfig(testConfig bool) Config {
 	const prefix = "BGPEX_"
 	c := Config{}
+
+	viper.SetDefault("ASN", "64512")
 
 	//ASN
 	if i := os.Getenv(prefix + "ASN"); len(i) > 0 {
@@ -60,5 +64,6 @@ func NewConfig(testConfig bool) Config {
 		c.Prom_port = 9179
 	}
 
+	c.Asn = viper.GetInt("ASN")
 	return c
 }
