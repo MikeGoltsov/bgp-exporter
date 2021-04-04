@@ -1,8 +1,13 @@
-package main
+package exporter
 
 import (
+	"log"
+	"net/http"
+	"strconv"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -31,3 +36,18 @@ var (
 	}, []string{"peer", "route", "aspath"},
 	)
 )
+
+func StartMetricsServer(cfg Config) {
+	myasn.WithLabelValues(strconv.Itoa(cfg.Asn)).Inc()
+
+	prometheus.MustRegister(routes)
+	prometheus.MustRegister(route_change)
+	http.Handle("/metrics", promhttp.Handler())
+
+	if err := http.ListenAndServe(":"+strconv.Itoa(cfg.Prom_port), nil); err != nil {
+		if err != http.ErrServerClosed {
+			log.Fatal("Server crashed")
+		}
+	}
+
+}

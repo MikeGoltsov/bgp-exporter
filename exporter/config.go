@@ -1,4 +1,4 @@
-package main
+package exporter
 
 import (
 	"log"
@@ -7,16 +7,16 @@ import (
 	"strconv"
 )
 
-type config struct {
+type Config struct {
 	Asn       int
 	Addr      string
-	prom_port int
-	rid       net.IP
+	Prom_port int
+	Rid       net.IP
 }
 
-func newConfig(testConfig bool) config {
+func NewConfig(testConfig bool) Config {
 	const prefix = "BGPEX_"
-	c := config{}
+	c := Config{}
 
 	//ASN
 	if i := os.Getenv(prefix + "ASN"); len(i) > 0 {
@@ -31,12 +31,12 @@ func newConfig(testConfig bool) config {
 
 	//BGP Router ID
 	if rid := os.Getenv(prefix + "RID"); len(rid) > 0 {
-		c.rid = net.ParseIP(rid)
-		if c.rid.To4() == nil {
+		c.Rid = net.ParseIP(rid)
+		if c.Rid.To4() == nil {
 			log.Panic("Router ID is invalid")
 		}
 	} else {
-		c.rid = net.ParseIP("1.1.1.1")
+		c.Rid = net.ParseIP("1.1.1.1")
 	}
 
 	//LISTEN ADDR
@@ -55,9 +55,9 @@ func newConfig(testConfig bool) config {
 		if err != nil {
 			log.Panic(err, "Port is invalid")
 		}
-		c.prom_port = d
+		c.Prom_port = d
 	} else {
-		c.prom_port = 9179
+		c.Prom_port = 9179
 	}
 
 	return c

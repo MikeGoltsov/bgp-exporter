@@ -1,4 +1,4 @@
-package main
+package exporter
 
 import (
 	"bytes"
@@ -299,14 +299,14 @@ func readBytes(conn net.Conn, length int) ([]byte, error) { //Read bytes from ne
 }
 
 // Handles incoming requests.
-func handlePeer(conn net.Conn, cfg config) {
+func HandlePeer(conn net.Conn, cfg Config) {
 	PeerIP, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
 	Peer := Neighbour{
 		connection: conn,
 		PeerIP:     PeerIP,
 		Asn32:      false,
 		MyASN:      uint32(cfg.Asn),
-		MyRID:      cfg.rid.To4(),
+		MyRID:      cfg.Rid.To4(),
 		routes:     make(map[string]string),
 	}
 	var MessageBuf []byte

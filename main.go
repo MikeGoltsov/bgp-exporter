@@ -2,18 +2,16 @@ package main
 
 import (
 	"net"
-	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"bgp-exporter/exporter"
+
 	log "github.com/sirupsen/logrus"
 )
 
-func BgpThread(cfg config) {
+func BgpThread(cfg exporter.Config) {
 	l, err := net.Listen("tcp", cfg.Addr+":179")
 	if err != nil {
 		log.Fatal("Error listening:", err.Error())
@@ -28,28 +26,17 @@ func BgpThread(cfg config) {
 			log.Error("Error accepting: ", err.Error())
 		}
 		// Handle connections in a new goroutine.
-		go handlePeer(conn, cfg)
+		go exporter.HandlePeer(conn, cfg)
 	}
 }
 
 func main() {
-	cfg := newConfig(false)
+	cfg := exporter.NewConfig(false)
 	log.SetFormatter(&log.TextFormatter{FullTimestamp: false})
 	log.SetLevel(log.DebugLevel)
 	log.Printf("App Started")
-	myasn.WithLabelValues(strconv.Itoa(cfg.Asn)).Inc()
 
-	prometheus.MustRegister(routes)
-	prometheus.MustRegister(route_change)
-	http.Handle("/metrics", promhttp.Handler())
-
-	go func() {
-		if err := http.ListenAndServe(":"+strconv.Itoa(cfg.prom_port), nil); err != nil {
-			if err != http.ErrServerClosed {
-				log.Fatal("Server crashed")
-			}
-		}
-	}()
+	go exporter.StartMetricsServer(cfg)
 
 	go BgpThread(cfg)
 
