@@ -2,8 +2,10 @@ package exporter
 
 import (
 	"net"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
@@ -18,6 +20,11 @@ type Config struct {
 
 func NewConfig(testConfig bool) Config {
 	c := Config{}
+	var configPath string
+
+	pflag.StringVarP(&configPath, "config", "c", "",
+		"Config file path")
+	pflag.Parse()
 
 	viper.SetDefault("asn", "64512")
 	viper.SetDefault("RouterID", "1.1.1.1")
@@ -26,16 +33,19 @@ func NewConfig(testConfig bool) Config {
 	viper.SetDefault("DeleteOnDisconnect", false)
 	viper.SetDefault("log_level", "debug")
 
-	viper.SetConfigName("bgp-exporter")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath("/etc/")
-	viper.AddConfigPath(".")
-	viper.ReadInConfig()
+	if configPath != "" {
+		log.Infof("Parsing config: %s", configPath)
+		viper.SetConfigFile(configPath)
+		err := viper.ReadInConfig()
+		if err != nil {
+			log.Error("Unable to read config file: %s", err)
+		}
+	}
 
 	viper.AutomaticEnv()
 	viper.SetEnvPrefix("bgpexp")
 
-	switch viper.GetString("log_level") {
+	switch strings.ToLower(viper.GetString("log_level")) {
 	case "panic":
 		c.LogLevel = log.PanicLevel
 	case "fatal":
@@ -49,7 +59,7 @@ func NewConfig(testConfig bool) Config {
 	case "debug":
 		c.LogLevel = log.DebugLevel
 	default:
-		c.LogLevel = log.DebugLevel
+		c.LogLevel = log.InfoLevel
 	}
 
 	c.Asn = viper.GetInt("asn")
