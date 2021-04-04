@@ -375,9 +375,13 @@ loop:
 	log.Info(Peer.PeerIP, " Close connection")
 	conn.Close()
 	aliveConnections.Dec()
-	//Delete routes from metrics
 	for route, aspath := range Peer.routes {
-		route_change.WithLabelValues(Peer.PeerIP, route, aspath).Inc()
-		routes.WithLabelValues(Peer.PeerIP, route, aspath).Dec()
+		if cfg.DeleteOnDisconnect {
+			route_change.DeleteLabelValues(Peer.PeerIP, route, aspath)
+			routes.DeleteLabelValues(Peer.PeerIP, route, aspath)
+		} else {
+			route_change.WithLabelValues(Peer.PeerIP, route, aspath).Inc()
+			routes.WithLabelValues(Peer.PeerIP, route, aspath).Dec()
+		}
 	}
 }

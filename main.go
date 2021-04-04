@@ -12,13 +12,13 @@ import (
 )
 
 func BgpThread(cfg exporter.Config) {
-	l, err := net.Listen("tcp", cfg.Addr+":179")
+	l, err := net.Listen("tcp", cfg.ListenAddr+":"+exporter.BGP_TCP_PORT)
 	if err != nil {
 		log.Fatal("Error listening:", err.Error())
 	}
 	// Close the listener when the application closes.
 	defer l.Close()
-	log.Info("Listening on " + cfg.Addr + ":179")
+	log.Info("Listening on " + cfg.ListenAddr + ":" + exporter.BGP_TCP_PORT)
 	for {
 		// Listen for an incoming connection.
 		conn, err := l.Accept()

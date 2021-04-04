@@ -44,7 +44,7 @@ func StartMetricsServer(cfg Config) {
 	prometheus.MustRegister(route_change)
 	http.Handle("/metrics", promhttp.Handler())
 
-	if err := http.ListenAndServe(":"+strconv.Itoa(cfg.Prom_port), nil); err != nil {
+	if err := http.ListenAndServe(":"+strconv.Itoa(cfg.MetricsPort), nil); err != nil {
 		if err != http.ErrServerClosed {
 			log.Fatal("Server crashed")
 		}

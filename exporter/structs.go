@@ -10,6 +10,7 @@ var (
 )
 
 const (
+	BGP_TCP_PORT           = "179"
 	BGP_HEADER_LENGTH      = 19
 	BGP_MAX_MESSAGE_LENGTH = 4096
 	BGP_OPEN_FIX_LENGTH    = 10

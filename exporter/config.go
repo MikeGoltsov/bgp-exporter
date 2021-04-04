@@ -8,10 +8,11 @@ import (
 )
 
 type Config struct {
-	Asn       int
-	Addr      string
-	Prom_port int
-	Rid       net.IP
+	Asn                int
+	Rid                net.IP
+	ListenAddr         string
+	MetricsPort        int
+	DeleteOnDisconnect bool
 }
 
 func NewConfig(testConfig bool) Config {
@@ -20,7 +21,8 @@ func NewConfig(testConfig bool) Config {
 	viper.SetDefault("asn", "64512")
 	viper.SetDefault("RouterID", "1.1.1.1")
 	viper.SetDefault("ListenAddr", "0.0.0.0")
-	viper.SetDefault("PrometheusPort", "9179")
+	viper.SetDefault("MetricsPort", "9179")
+	viper.SetDefault("DeleteOnDisconnect", false)
 
 	viper.SetConfigName("bgp-exporter")
 	viper.SetConfigType("yaml")
@@ -38,13 +40,15 @@ func NewConfig(testConfig bool) Config {
 		log.Fatal("Router ID is invalid")
 	}
 
-	c.Prom_port = viper.GetInt("PrometheusPort")
+	c.MetricsPort = viper.GetInt("MetricsPort")
 
-	if _, err := net.ResolveTCPAddr("tcp", viper.GetString("ListenAddr")+":179"); err != nil {
+	if _, err := net.ResolveTCPAddr("tcp", viper.GetString("ListenAddr")+":"+BGP_TCP_PORT); err != nil {
 		log.Fatal("Listen addres is invalid: ", err)
 	} else {
-		c.Addr = viper.GetString("ListenAddr")
+		c.ListenAddr = viper.GetString("ListenAddr")
 	}
+
+	c.DeleteOnDisconnect = viper.GetBool("DeleteOnDisconnect")
 
 	return c
 }
