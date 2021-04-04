@@ -1,9 +1,9 @@
 package exporter
 
 import (
-	"log"
 	"net"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -35,13 +35,13 @@ func NewConfig(testConfig bool) Config {
 
 	c.Rid = net.ParseIP(viper.GetString("RouterID"))
 	if c.Rid.To4() == nil {
-		log.Panic("Router ID is invalid")
+		log.Fatal("Router ID is invalid")
 	}
 
 	c.Prom_port = viper.GetInt("PrometheusPort")
 
 	if _, err := net.ResolveTCPAddr("tcp", viper.GetString("ListenAddr")+":179"); err != nil {
-		log.Panic(err, "Listen addres is invalid")
+		log.Fatal("Listen addres is invalid: ", err)
 	} else {
 		c.Addr = viper.GetString("ListenAddr")
 	}
