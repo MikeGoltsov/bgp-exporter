@@ -13,6 +13,7 @@ type Config struct {
 	ListenAddr         string
 	MetricsPort        int
 	DeleteOnDisconnect bool
+	LogLevel           log.Level
 }
 
 func NewConfig(testConfig bool) Config {
@@ -23,6 +24,7 @@ func NewConfig(testConfig bool) Config {
 	viper.SetDefault("ListenAddr", "0.0.0.0")
 	viper.SetDefault("MetricsPort", "9179")
 	viper.SetDefault("DeleteOnDisconnect", false)
+	viper.SetDefault("log_level", "debug")
 
 	viper.SetConfigName("bgp-exporter")
 	viper.SetConfigType("yaml")
@@ -32,6 +34,23 @@ func NewConfig(testConfig bool) Config {
 
 	viper.AutomaticEnv()
 	viper.SetEnvPrefix("bgpexp")
+
+	switch viper.GetString("log_level") {
+	case "panic":
+		c.LogLevel = log.PanicLevel
+	case "fatal":
+		c.LogLevel = log.FatalLevel
+	case "error":
+		c.LogLevel = log.ErrorLevel
+	case "wran":
+		c.LogLevel = log.WarnLevel
+	case "info":
+		c.LogLevel = log.InfoLevel
+	case "debug":
+		c.LogLevel = log.DebugLevel
+	default:
+		c.LogLevel = log.DebugLevel
+	}
 
 	c.Asn = viper.GetInt("asn")
 

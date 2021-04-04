@@ -33,7 +33,7 @@ func BgpThread(cfg exporter.Config) {
 func main() {
 	cfg := exporter.NewConfig(false)
 	log.SetFormatter(&log.TextFormatter{FullTimestamp: true})
-	log.SetLevel(log.DebugLevel)
+	log.SetLevel(cfg.LogLevel)
 	log.Info("App Starting")
 
 	go exporter.StartMetricsServer(cfg)
