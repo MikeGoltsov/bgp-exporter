@@ -12,6 +12,8 @@ Run from command-line:
 
 The exporter supports two configuration ways: environment variables that take precedence over configuration file.
 
+The configuration file is specified with the flag -c filename. Yaml and ini formats accepted.
+
 As for available config options and equivalent environment variables, here is a list:
 
 |     environment variable      |      config file    |                       description                  |        default        |
