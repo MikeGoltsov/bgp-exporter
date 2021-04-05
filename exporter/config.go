@@ -37,7 +37,7 @@ func NewConfig(testConfig bool) Config {
 		viper.SetConfigFile(configPath)
 		err := viper.ReadInConfig()
 		if err != nil {
-			log.Error("Unable to read config file: %s", err)
+			log.Error("Unable to read config file: ", err)
 		}
 	}
 
