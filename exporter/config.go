@@ -70,10 +70,10 @@ func NewConfig(testConfig bool) Config {
 
 	c.MetricsPort = viper.GetInt("metrics_port")
 
-	if _, err := net.ResolveTCPAddr("tcp", viper.GetString("listen_addr")+":"+BGP_TCP_PORT); err != nil {
+	if _, err := net.ResolveTCPAddr("tcp", viper.GetString("listen_address")+":"+BGP_TCP_PORT); err != nil {
 		log.Fatal("Listen addres is invalid: ", err)
 	} else {
-		c.ListenAddr = viper.GetString("listen_addr")
+		c.ListenAddr = viper.GetString("listen_address")
 	}
 
 	c.DeleteOnDisconnect = viper.GetBool("del_on_disconnect")
