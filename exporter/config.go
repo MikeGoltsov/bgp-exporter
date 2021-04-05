@@ -22,15 +22,14 @@ func NewConfig(testConfig bool) Config {
 	c := Config{}
 	var configPath string
 
-	pflag.StringVarP(&configPath, "config", "c", "",
-		"Config file path")
+	pflag.StringVarP(&configPath, "config", "c", "", "Config file path")
 	pflag.Parse()
 
 	viper.SetDefault("asn", "64512")
-	viper.SetDefault("RouterID", "1.1.1.1")
-	viper.SetDefault("ListenAddr", "0.0.0.0")
-	viper.SetDefault("MetricsPort", "9179")
-	viper.SetDefault("DeleteOnDisconnect", false)
+	viper.SetDefault("router_id", "1.1.1.1")
+	viper.SetDefault("listen_address", "0.0.0.0")
+	viper.SetDefault("metrics_port", "9179")
+	viper.SetDefault("delete_on_disconnect", false)
 	viper.SetDefault("log_level", "debug")
 
 	if configPath != "" {
@@ -64,20 +63,20 @@ func NewConfig(testConfig bool) Config {
 
 	c.Asn = viper.GetInt("asn")
 
-	c.Rid = net.ParseIP(viper.GetString("RouterID"))
+	c.Rid = net.ParseIP(viper.GetString("router_id"))
 	if c.Rid.To4() == nil {
 		log.Fatal("Router ID is invalid")
 	}
 
-	c.MetricsPort = viper.GetInt("MetricsPort")
+	c.MetricsPort = viper.GetInt("metrics_port")
 
-	if _, err := net.ResolveTCPAddr("tcp", viper.GetString("ListenAddr")+":"+BGP_TCP_PORT); err != nil {
+	if _, err := net.ResolveTCPAddr("tcp", viper.GetString("listen_addr")+":"+BGP_TCP_PORT); err != nil {
 		log.Fatal("Listen addres is invalid: ", err)
 	} else {
-		c.ListenAddr = viper.GetString("ListenAddr")
+		c.ListenAddr = viper.GetString("listen_addr")
 	}
 
-	c.DeleteOnDisconnect = viper.GetBool("DeleteOnDisconnect")
+	c.DeleteOnDisconnect = viper.GetBool("del_on_disconnect")
 
 	return c
 }
