@@ -299,7 +299,7 @@ func readBytes(conn net.Conn, length int) ([]byte, error) { //Read bytes from ne
 }
 
 // Handles incoming requests.
-func HandlePeer(conn net.Conn, cfg Config) {
+func HandlePeer(conn net.Conn, cfg *Config) {
 	PeerIP, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
 	Peer := Neighbour{
 		connection: conn,

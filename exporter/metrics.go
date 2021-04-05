@@ -37,7 +37,7 @@ var (
 	)
 )
 
-func StartMetricsServer(cfg Config) {
+func StartMetricsServer(cfg *Config) {
 	myasn.WithLabelValues(strconv.Itoa(cfg.Asn)).Inc()
 
 	prometheus.MustRegister(routes)
