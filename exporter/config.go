@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/viper"
 )
 
+// Config global configuration of exporter.
 type Config struct {
 	Asn                int
 	Rid                net.IP
@@ -18,6 +19,7 @@ type Config struct {
 	LogLevel           log.Level
 }
 
+// NewConfig generate configuration from config file or env.
 func NewConfig(testConfig bool) Config {
 	c := Config{}
 	var configPath string

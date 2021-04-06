@@ -11,7 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func BgpThread(cfg *exporter.Config) {
+func bgpThread(cfg *exporter.Config) {
 	l, err := net.Listen("tcp", cfg.ListenAddr+":"+exporter.BGP_TCP_PORT)
 	if err != nil {
 		log.Fatal("Error listening:", err.Error())
@@ -38,7 +38,7 @@ func main() {
 
 	go exporter.StartMetricsServer(&cfg)
 
-	go BgpThread(&cfg)
+	go bgpThread(&cfg)
 
 	log.Info("App running")
 	//wait for OS signal

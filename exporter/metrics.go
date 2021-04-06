@@ -30,18 +30,19 @@ var (
 		Help: "Number of blob storage operations waiting to be processed, partitioned by user and type.",
 	}, []string{"peer", "route", "aspath"},
 	)
-	route_change = prometheus.NewCounterVec(prometheus.CounterOpts{
+	routeChange = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "bgp_route_changes",
 		Help: "Number of blob storage operations waiting to be processed, partitioned by user and type.",
 	}, []string{"peer", "route", "aspath"},
 	)
 )
 
+//StartMetricsServer init and run web server
 func StartMetricsServer(cfg *Config) {
 	myasn.WithLabelValues(strconv.Itoa(cfg.Asn)).Inc()
 
 	prometheus.MustRegister(routes)
-	prometheus.MustRegister(route_change)
+	prometheus.MustRegister(routeChange)
 	http.Handle("/metrics", promhttp.Handler())
 
 	if err := http.ListenAndServe(":"+strconv.Itoa(cfg.MetricsPort), nil); err != nil {

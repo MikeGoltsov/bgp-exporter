@@ -15,6 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// Neighbour type describing BGP Neighbour state
 type Neighbour struct {
 	connection net.Conn
 	PeerIP     string
@@ -176,7 +177,7 @@ func (N *Neighbour) HandleBGPUpdateMsg(UpdateBuf *[]byte) {
 			}
 			N.routes[ipv4ttostr(route)] = aspathtostr(route.AsPath)
 			routes.WithLabelValues(N.PeerIP, ipv4ttostr(route), aspathtostr(route.AsPath)).Inc()
-			route_change.WithLabelValues(N.PeerIP, ipv4ttostr(route), aspathtostr(route.AsPath)).Inc()
+			routeChange.WithLabelValues(N.PeerIP, ipv4ttostr(route), aspathtostr(route.AsPath)).Inc()
 		}
 	}
 	//Delete Withdrawn Routes from route table
@@ -184,7 +185,7 @@ func (N *Neighbour) HandleBGPUpdateMsg(UpdateBuf *[]byte) {
 		for _, route := range UpdateMsg.WithdrawnRoutes {
 			if existaspath, ok := N.routes[ipv4ttostr(route)]; ok {
 				routes.WithLabelValues(N.PeerIP, ipv4ttostr(route), existaspath).Dec()
-				route_change.WithLabelValues(N.PeerIP, ipv4ttostr(route), existaspath).Inc()
+				routeChange.WithLabelValues(N.PeerIP, ipv4ttostr(route), existaspath).Inc()
 			}
 			delete(N.routes, ipv4ttostr(route))
 		}
@@ -298,7 +299,7 @@ func readBytes(conn net.Conn, length int) ([]byte, error) { //Read bytes from ne
 	return buf, nil
 }
 
-// Handles incoming requests.
+// HandlePeer handle incoming connections.
 func HandlePeer(conn net.Conn, cfg *Config) {
 	PeerIP, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
 	Peer := Neighbour{
@@ -377,10 +378,10 @@ loop:
 	aliveConnections.Dec()
 	for route, aspath := range Peer.routes {
 		if cfg.DeleteOnDisconnect {
-			route_change.DeleteLabelValues(Peer.PeerIP, route, aspath)
+			routeChange.DeleteLabelValues(Peer.PeerIP, route, aspath)
 			routes.DeleteLabelValues(Peer.PeerIP, route, aspath)
 		} else {
-			route_change.WithLabelValues(Peer.PeerIP, route, aspath).Inc()
+			routeChange.WithLabelValues(Peer.PeerIP, route, aspath).Inc()
 			routes.WithLabelValues(Peer.PeerIP, route, aspath).Dec()
 		}
 	}
