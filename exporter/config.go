@@ -32,7 +32,7 @@ func NewConfig(testConfig bool) Config {
 	viper.SetDefault("listen_address", "0.0.0.0")
 	viper.SetDefault("metrics_port", "9179")
 	viper.SetDefault("delete_on_disconnect", false)
-	viper.SetDefault("log_level", "debug")
+	viper.SetDefault("log_level", "info")
 
 	if configPath != "" {
 		log.Infof("Parsing config: %s", configPath)

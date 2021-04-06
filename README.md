@@ -1,6 +1,6 @@
 # Bgp-exporter
 
-[![Go Report Card](https://goreportcard.com/report/github.com/MikeGoltsov/bgp-exporter)][goreportcard]
+[![Go Report Card](https://goreportcard.com/badge/github.com/MikeGoltsov/bgp-exporter)](https://goreportcard.com/report/github.com/MikeGoltsov/bgp-exporter)
 
 This is a simple, lightweight exporter of BGP routes via HTTP for Prometheus.
 
