@@ -29,7 +29,7 @@ type Neighbour struct {
 	routes     map[string]string
 }
 
-func (N *Neighbour) ParceBGPOpenMsg(MessageBuf *[]byte) error {
+func (N *Neighbour) parceBGPOpenMsg(MessageBuf *[]byte) error {
 
 	if uint8((*MessageBuf)[0]) != 4 {
 		log.Error(N.PeerIP, " Incorrect BGP version")
@@ -59,15 +59,15 @@ func (N *Neighbour) ParceBGPOpenMsg(MessageBuf *[]byte) error {
 				}
 			}
 		} else {
-			log.Info(N.PeerIP, " Recieved unsupported OPEN option")
+			log.Info(N.PeerIP, " Received unsupported OPEN option")
 		}
 	}
 
-	log.Debug(N.PeerIP, " Open recieved")
+	log.Debug(N.PeerIP, " Open received")
 	return nil
 }
 
-func (N *Neighbour) SendBGPOpenMsg() error {
+func (N *Neighbour) sendBGPOpenMsg() error {
 	buf := make([]byte, 4)
 
 	Header := BGPHeader{
@@ -113,7 +113,7 @@ func (N *Neighbour) SendBGPOpenMsg() error {
 	return nil
 }
 
-func (N *Neighbour) SendBGPKeepaliveMsg() error {
+func (N *Neighbour) sendBGPKeepaliveMsg() error {
 	Header := BGPHeader{
 		Padding: BGP_HEADER_PADDING,
 		Length:  BGP_HEADER_LENGTH,
@@ -147,8 +147,8 @@ func ipv4ttostr(route Route) string {
 	return strings.Join(ipaddrstr, ".") + "/" + strconv.FormatUint(uint64(route.PrefixLen), 10)
 }
 
-func (N *Neighbour) HandleBGPUpdateMsg(UpdateBuf *[]byte) {
-	UpdateMsg := ParceBGPUpdateMsg(UpdateBuf)
+func (N *Neighbour) handleBGPUpdateMsg(UpdateBuf *[]byte) {
+	UpdateMsg := parceBGPUpdateMsg(UpdateBuf)
 	aspath := []uint32{}
 	log.Debug("UpdateMsg: ", UpdateMsg)
 	//Rarce Path attributes
@@ -192,7 +192,7 @@ func (N *Neighbour) HandleBGPUpdateMsg(UpdateBuf *[]byte) {
 	}
 }
 
-func ParceBGPUpdateMsg(UpdateBuf *[]byte) BGPUpdateMsg {
+func parceBGPUpdateMsg(UpdateBuf *[]byte) BGPUpdateMsg {
 	UpdateMsg := BGPUpdateMsg{}
 
 	//Parce WithdrawnRoutes
@@ -339,34 +339,34 @@ loop:
 
 		switch Header.Type {
 		case BGP_MSG_OPEN:
-			err := Peer.ParceBGPOpenMsg(&MessageBuf)
+			err := Peer.parceBGPOpenMsg(&MessageBuf)
 			if err != nil {
 				log.Error(Peer.PeerIP, " OPEN failed:", err)
 				break loop
 			}
 
-			err = Peer.SendBGPOpenMsg()
+			err = Peer.sendBGPOpenMsg()
 			if err != nil {
 				log.Error(Peer.PeerIP, " Open send failed:", err)
 				break loop
 			}
 		case BGP_MSG_UPDATE:
-			log.Debug(Peer.PeerIP, " Update recieved")
-			Peer.HandleBGPUpdateMsg(&MessageBuf)
+			log.Debug(Peer.PeerIP, " Update received")
+			Peer.handleBGPUpdateMsg(&MessageBuf)
 
-		case BGP_MSG_NOTIFICATON:
-			log.Error(Peer.PeerIP, " Notification recieved: ", MessageBuf)
+		case BGP_MSG_NOTIFICATION:
+			log.Error(Peer.PeerIP, " Notification received: ", MessageBuf)
 			break loop
 		case BGP_MSG_KEEPALIVE:
-			log.Debug(Peer.PeerIP, " Keepalive recieved")
-			err := Peer.SendBGPKeepaliveMsg()
+			log.Debug(Peer.PeerIP, " Keepalive received")
+			err := Peer.sendBGPKeepaliveMsg()
 			if err != nil {
 				log.Print(Peer.PeerIP, " Keepalive send failed:", err)
 				break loop
 			}
 		case BGP_MSG_REFRESH:
 			//Unsupported
-			log.Debug(Peer.PeerIP, "Refresh recieved")
+			log.Debug(Peer.PeerIP, "Refresh received")
 			fmt.Println(MessageBuf)
 		}
 

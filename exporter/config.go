@@ -73,7 +73,7 @@ func NewConfig(testConfig bool) Config {
 	c.MetricsPort = viper.GetInt("metrics_port")
 
 	if _, err := net.ResolveTCPAddr("tcp", viper.GetString("listen_address")+":"+BGP_TCP_PORT); err != nil {
-		log.Fatal("Listen addres is invalid: ", err)
+		log.Fatal("Listen address is invalid: ", err)
 	} else {
 		c.ListenAddr = viper.GetString("listen_address")
 	}

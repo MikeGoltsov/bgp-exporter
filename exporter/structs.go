@@ -2,6 +2,7 @@ package exporter
 
 import "net"
 
+// BGP constant defenitions
 var (
 	BGP_HEADER_PADDING      = [16]byte{0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}
 	BGP_CAP_MP_IPv4_UNICAST = []byte{0x01, 0x04, 0x00, 0x01, 0x00, 0x01}
@@ -15,11 +16,11 @@ const (
 	BGP_MAX_MESSAGE_LENGTH = 4096
 	BGP_OPEN_FIX_LENGTH    = 10
 
-	BGP_MSG_OPEN        = 1
-	BGP_MSG_UPDATE      = 2
-	BGP_MSG_NOTIFICATON = 3
-	BGP_MSG_KEEPALIVE   = 4
-	BGP_MSG_REFRESH     = 5
+	BGP_MSG_OPEN         = 1
+	BGP_MSG_UPDATE       = 2
+	BGP_MSG_NOTIFICATION = 3
+	BGP_MSG_KEEPALIVE    = 4
+	BGP_MSG_REFRESH      = 5
 
 	BGP_AS_TRANS = 23456
 
@@ -31,12 +32,14 @@ const (
 	BGP_PA_ASPATH = 2
 )
 
+// BGPHeader struct describe header of BGP msg
 type BGPHeader struct {
 	Padding [16]byte
 	Length  uint16
 	Type    uint8
 }
 
+// BGPOpenMsg struct describe OPEN message
 type BGPOpenMsg struct {
 	Version       uint8
 	Asn           uint16
@@ -46,6 +49,7 @@ type BGPOpenMsg struct {
 	OptParams     []byte
 }
 
+// BGPUpdateMsg struct describe UPDATE message
 type BGPUpdateMsg struct {
 	WithdrawnRoutesLen uint16
 	WithdrawnRoutes    []Route
@@ -54,18 +58,21 @@ type BGPUpdateMsg struct {
 	NLRI               []Route
 }
 
+// TLV uses for OPEN capabilies parcing
 type TLV struct {
 	Type   uint8
 	Length uint8
 	Value  []byte
 }
 
+// Route describe NLRI
 type Route struct {
 	PrefixLen uint8
 	Prefix    []byte
 	AsPath    []uint32
 }
 
+// PathAttr describe NLRI PathAttributes
 type PathAttr struct {
 	flags uint8
 	Value []byte
