@@ -25,14 +25,16 @@ func NewConfig(testConfig bool) Config {
 	var configPath string
 
 	pflag.StringVarP(&configPath, "config", "c", "", "Config file path")
+	pflag.IntP("asn", "a", 64512, "AS number of exporter")
+	pflag.StringP("listen-address", "l", "0.0.0.0", "listen adress")
 	pflag.Parse()
 
 	viper.SetDefault("asn", "64512")
 	viper.SetDefault("router_id", "1.1.1.1")
-	viper.SetDefault("listen_address", "0.0.0.0")
-	viper.SetDefault("metrics_port", "9179")
+	viper.SetDefault("listen-address", "0.0.0.0")
+	viper.SetDefault("metrics-port", "9179")
 	viper.SetDefault("delete_on_disconnect", false)
-	viper.SetDefault("log_level", "info")
+	viper.SetDefault("log-level", "info")
 
 	if configPath != "" {
 		log.Infof("Parsing config: %s", configPath)
@@ -43,10 +45,13 @@ func NewConfig(testConfig bool) Config {
 		}
 	}
 
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 	viper.SetEnvPrefix("bgpexp")
 
-	switch strings.ToLower(viper.GetString("log_level")) {
+	viper.BindPFlags(pflag.CommandLine)
+
+	switch strings.ToLower(viper.GetString("log-level")) {
 	case "panic":
 		c.LogLevel = log.PanicLevel
 	case "fatal":
@@ -70,12 +75,12 @@ func NewConfig(testConfig bool) Config {
 		log.Fatal("Router ID is invalid")
 	}
 
-	c.MetricsPort = viper.GetInt("metrics_port")
+	c.MetricsPort = viper.GetInt("metrics-port")
 
-	if _, err := net.ResolveTCPAddr("tcp", viper.GetString("listen_address")+":"+BGP_TCP_PORT); err != nil {
+	if _, err := net.ResolveTCPAddr("tcp", viper.GetString("listen-address")+":"+BGP_TCP_PORT); err != nil {
 		log.Fatal("Listen address is invalid: ", err)
 	} else {
-		c.ListenAddr = viper.GetString("listen_address")
+		c.ListenAddr = viper.GetString("listen-address")
 	}
 
 	c.DeleteOnDisconnect = viper.GetBool("del_on_disconnect")
