@@ -16,6 +16,11 @@ var (
 		Help: "Local BGP ASN number",
 	}, []string{"asn"})
 
+	neighbourRoutes = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "bgp_neighbour_announced_total",
+		Help: "Total announced routes from neigbour",
+	}, []string{"neighbour"})
+
 	totalConnections = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "bgp_connections_total",
 		Help: "The total number of connections",
