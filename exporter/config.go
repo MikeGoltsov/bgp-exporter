@@ -30,10 +30,10 @@ func NewConfig(testConfig bool) Config {
 	pflag.Parse()
 
 	viper.SetDefault("asn", "64512")
-	viper.SetDefault("router_id", "1.1.1.1")
+	viper.SetDefault("router-id", "1.1.1.1")
 	viper.SetDefault("listen-address", "0.0.0.0")
 	viper.SetDefault("metrics-port", "9179")
-	viper.SetDefault("delete_on_disconnect", false)
+	viper.SetDefault("clear-neighbour", false)
 	viper.SetDefault("log-level", "info")
 
 	if configPath != "" {
@@ -70,7 +70,7 @@ func NewConfig(testConfig bool) Config {
 
 	c.Asn = viper.GetInt("asn")
 
-	c.Rid = net.ParseIP(viper.GetString("router_id"))
+	c.Rid = net.ParseIP(viper.GetString("router-id"))
 	if c.Rid.To4() == nil {
 		log.Fatal("Router ID is invalid")
 	}
@@ -83,7 +83,7 @@ func NewConfig(testConfig bool) Config {
 		c.ListenAddr = viper.GetString("listen-address")
 	}
 
-	c.DeleteOnDisconnect = viper.GetBool("del_on_disconnect")
+	c.DeleteOnDisconnect = viper.GetBool("clear-neighbour")
 
 	return c
 }

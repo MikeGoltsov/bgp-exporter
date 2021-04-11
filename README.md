@@ -22,7 +22,7 @@ As for available config options and equivalent environment variables, here is a 
 | ----------------------------- | ------------------- | -------- | -------------------------------------------------- | --------------------- |
 | BGPEXP_ASN                    | asn                 | -a       | AS number of exporter                              | 64512                 |
 | BGPEXP_ROUTER_ID              | router-id           |          | RID of exporter                                    | 1.1.1.1               |
-| BGPEXP_LISTEN_ADDRES          | listen_address      | -l       | IPv4 address of interface where bgp proccess listen| 0.0.0.0               |
+| BGPEXP_LISTEN_ADDRES          | listen-address      | -l       | IPv4 address of interface where bgp proccess listen| 0.0.0.0               |
 | BGPEXP_METRICS_PORT           | metrics-port        |          | Port to listen on for HTTP requests                | 9179                  |
 | BGPEXP_DELETE_ON_DISCONNECT   | delete_on_disconnect|          | Remove metrics of disconnected BGP peer            | False                 |
 | BGPEXP_LOG_LEVEL              | log-level           |          | Log level                                          | Info                  |
