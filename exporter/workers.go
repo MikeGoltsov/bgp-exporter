@@ -174,12 +174,10 @@ func (N *Neighbour) handleBGPUpdateMsg(UpdateBuf *[]byte) {
 			route.AsPath = append(route.AsPath, aspath...)
 			if existaspath, ok := N.routes[ipv4ttostr(route)]; ok {
 				routes.WithLabelValues(N.PeerIP, ipv4ttostr(route), existaspath).Dec()
-				neighbourRoutes.WithLabelValues(N.PeerIP).Dec()
 			}
 			N.routes[ipv4ttostr(route)] = aspathtostr(route.AsPath)
 			routes.WithLabelValues(N.PeerIP, ipv4ttostr(route), aspathtostr(route.AsPath)).Inc()
 			routeChange.WithLabelValues(N.PeerIP, ipv4ttostr(route), aspathtostr(route.AsPath)).Inc()
-			neighbourRoutes.WithLabelValues(N.PeerIP).Inc()
 		}
 	}
 	//Delete Withdrawn Routes from route table
@@ -190,9 +188,9 @@ func (N *Neighbour) handleBGPUpdateMsg(UpdateBuf *[]byte) {
 				routeChange.WithLabelValues(N.PeerIP, ipv4ttostr(route), existaspath).Inc()
 			}
 			delete(N.routes, ipv4ttostr(route))
-			neighbourRoutes.WithLabelValues(N.PeerIP).Dec()
 		}
 	}
+	neighbourRoutes.WithLabelValues(N.PeerIP).Set(float64(len(N.routes)))
 }
 
 func parceBGPUpdateMsg(UpdateBuf *[]byte) BGPUpdateMsg {
