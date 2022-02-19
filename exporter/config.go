@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+const defaultLogLevel = log.InfoLevel
+
 // Config global configuration of exporter.
 type Config struct {
 	Asn                int
@@ -19,9 +21,8 @@ type Config struct {
 	LogLevel           log.Level
 }
 
-// NewConfig generate configuration from config file or env.
-func NewConfig(testConfig bool) Config {
-	c := Config{}
+// parseFlags parses configuration from config file or env.
+func parseFlags() {
 	var configPath string
 
 	pflag.StringVarP(&configPath, "config", "c", "", "Config file path")
@@ -49,41 +50,39 @@ func NewConfig(testConfig bool) Config {
 	viper.AutomaticEnv()
 	viper.SetEnvPrefix("bgpexp")
 
-	viper.BindPFlags(pflag.CommandLine)
+	err := viper.BindPFlags(pflag.CommandLine)
+	if err != nil {
+		log.Fatal("Unable to parse command line: ", err)
+	}
+}
 
-	switch strings.ToLower(viper.GetString("log-level")) {
-	case "panic":
-		c.LogLevel = log.PanicLevel
-	case "fatal":
-		c.LogLevel = log.FatalLevel
-	case "error":
-		c.LogLevel = log.ErrorLevel
-	case "wran":
-		c.LogLevel = log.WarnLevel
-	case "info":
-		c.LogLevel = log.InfoLevel
-	case "debug":
-		c.LogLevel = log.DebugLevel
-	default:
-		c.LogLevel = log.InfoLevel
+// configure read and checks configuration from config file or env.
+func Configure() Config {
+	parseFlags()
+
+	ll, err := log.ParseLevel(viper.GetString("log-level"))
+	if err != nil {
+		log.Error("Invalid log level", err)
+		log.Warn("Using default log level", defaultLogLevel)
+		ll = defaultLogLevel
 	}
 
-	c.Asn = viper.GetInt("asn")
+	c := Config{
+		LogLevel:           ll,
+		Asn:                viper.GetInt("asn"),
+		MetricsPort:        viper.GetInt("metrics-port"),
+		DeleteOnDisconnect: viper.GetBool("clear-neighbour"),
+		ListenAddr:         viper.GetString("listen-address"),
+	}
 
 	c.Rid = net.ParseIP(viper.GetString("router-id"))
 	if c.Rid.To4() == nil {
 		log.Fatal("Router ID is invalid")
 	}
 
-	c.MetricsPort = viper.GetInt("metrics-port")
-
-	if _, err := net.ResolveTCPAddr("tcp", viper.GetString("listen-address")+":"+BGP_TCP_PORT); err != nil {
+	if _, err := net.ResolveTCPAddr("tcp", c.ListenAddr+":"+BGP_TCP_PORT); err != nil {
 		log.Fatal("Listen address is invalid: ", err)
-	} else {
-		c.ListenAddr = viper.GetString("listen-address")
 	}
-
-	c.DeleteOnDisconnect = viper.GetBool("clear-neighbour")
 
 	return c
 }

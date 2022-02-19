@@ -31,7 +31,7 @@ func bgpThread(cfg *exporter.Config) {
 }
 
 func main() {
-	cfg := exporter.NewConfig(false)
+	cfg := exporter.Configure()
 	log.SetFormatter(&log.TextFormatter{FullTimestamp: true})
 	log.SetLevel(cfg.LogLevel)
 	log.Info("App Starting")

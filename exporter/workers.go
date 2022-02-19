@@ -149,7 +149,7 @@ func ipv4ttostr(route Route) string {
 
 func (N *Neighbour) handleBGPUpdateMsg(UpdateBuf *[]byte) {
 	UpdateMsg := parceBGPUpdateMsg(UpdateBuf)
-	aspath := []uint32{}
+	var aspath []uint32
 	log.Debug("UpdateMsg: ", UpdateMsg)
 	//Rarce Path attributes
 	if len(UpdateMsg.PathArrtibutes) > 0 {
@@ -375,7 +375,10 @@ loop:
 
 	}
 	log.Info(Peer.PeerIP, " Close connection")
-	conn.Close()
+	err := conn.Close()
+	if err != nil {
+		return
+	}
 	aliveConnections.Dec()
 	for route, aspath := range Peer.routes {
 		if cfg.DeleteOnDisconnect {
